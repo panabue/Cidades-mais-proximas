@@ -93,6 +93,9 @@ City *Procura_cidade(HashTable *hash_table, int codigo_ibge) {
 }
 
 int main() {
+
+    printf("Espere um momento...\n");
+    
     // Abrindo o arquivo JSON para leitura
     FILE *file = fopen("municipios.json", "r");
     if (file == NULL) {
@@ -167,7 +170,7 @@ int main() {
         printf("Nome: %s\n", cidadeBuscada->nome);
         printf("Latitude: %.4f\n", cidadeBuscada->latitude);
         printf("Longitude: %.4f\n", cidadeBuscada->longitude);
-        printf("Capital: %s\n", cidadeBuscada->capital ? "Sim" : "Não");
+        printf("Capital: %s\n", cidadeBuscada->capital ? "Sim" : "Nao");
         printf("Codigo UF: %d\n", cidadeBuscada->codigo_uf);
         printf("SIAFI ID: %d\n", cidadeBuscada->siafi_id);
         printf("DDD: %d\n", cidadeBuscada->ddd);
