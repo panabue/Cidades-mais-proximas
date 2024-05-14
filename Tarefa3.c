@@ -1,4 +1,4 @@
-/*dado o nome de uma cidade, retorna todas as informações das N cidades vizinhas mais próximas. */
+/*dado o nome de uma cidade, retorna todas as informações das N cidades vizinhas mais próximas.*/
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -19,66 +19,81 @@ typedef struct {
     char fuso_horario[50];
 } City;
 
-//Estrutura da tabela hash(nomes)
-typedef struct {
-    int tamanho;
-    char **nomes;
-    int *valores_nomes;
-} HashTable_Nomes;
+//Função usada para converter uma string em um índice na tabela hash
+unsigned int Hash_function_nomes(const char *str, unsigned int tamanho) {
+    //valor escolhido arbitrariamente
+    unsigned int hash = 7;
+    int c;
 
-//Função hash para strings (nome das cidades)
-int hash_function_nomes(char *nomes, int tamanho) {
-    int hash = 0;
-    int len = strlen(nomes);
-    for (int i = 0; i < len; i++) {
-        hash += nomes[i];
-    }
+    while ((c = *str++))//atribui o valor ASCII do caractere atual à variável c e move o ponteiro para o próximo caractere na string
+        /*Multiplica o valor hash por 33 (equivale a um deslocamento para a esquerda de 5 bits e depois adiciona o valor original de hash)
+        Em seguida, adiciona o valor ASCII do caractere atual, representado pela variável c*/
+        hash = ((hash << 5) + hash) + c; 
+
     return hash % tamanho;
 }
 
-//Função para inicializar a tabela hash(nomes)
-HashTable_Nomes *cria_hash_table_nomes(int tamanho) {
-    // Aloca memória para a tabela hash
+//Estrutura da tabela hash
+typedef struct {
+    int tamanho;
+    City **table;
+} HashTable_Nomes;
+
+// Função para inicializar a tabela hash (nomes)
+HashTable_Nomes *Cria_hash_table_nomes(int tamanho) {
+    //Aloca memoria para a hashtable
     HashTable_Nomes *hash_table = (HashTable_Nomes *)malloc(sizeof(HashTable_Nomes));
     hash_table->tamanho = tamanho;
-    // Aloca memória para os arrays de chaves e valores
-    hash_table->nomes = (char **)malloc(tamanho * sizeof(char *));
-    hash_table->valores_nomes = (int *)malloc(tamanho * sizeof(int));
-    // Inicializa os arrays com NULL e -1
-    for (int i = 0; i < tamanho; i++) {
-        hash_table->nomes[i] = NULL;
-        hash_table->valores_nomes[i] = -1;
-    }
+    //Aloca dinamicamente memória para o array de ponteiros para City dentro da tabela hash
+    hash_table->table = (City **)calloc(tamanho, sizeof(City *));
     return hash_table;
 }
 
-//Função para inserir um par nome-valor na tabela hash
-void insere_nome(HashTable_Nomes *hash_table_nomes, char *nomes, int valores_nomes) {
-    int index = hash_function_nomes(nomes, hash_table_nomes->tamanho);
-    // Verifica se a posição está vazia
-    while (hash_table_nomes->nomes[index] != NULL) {
-        //Em caso de colisão, procura pela próxima posição vazia
-        index = (index + 1) % hash_table_nomes->tamanho;
+//Função para inserir uma cidade na tabela hash (nomes)
+void Insere_nome(HashTable_Nomes *hash_table, City *cidade) {
+    //Calcula o indice usando a funcao hash para transfomar strings em valores hash
+    unsigned int index = Hash_function_nomes(cidade->nome, hash_table->tamanho);
+    //Enquanto a hastable na posisao do index estiver ocupada (colisao):
+    while (hash_table->table[index] != NULL) {
+        //Atualiza o índice para a próxima posição na tabela hash
+        index = (index + 1) % hash_table->tamanho;
     }
-    //Insere a chave e o valor na posição encontrada
-    hash_table_nomes->nomes[index] = strdup(nomes);
-    hash_table_nomes->valores_nomes[index] = valores_nomes;
+    //Insere a cidade na posicao da hashtable disponivel 
+    hash_table->table[index] = cidade;
 }
 
-// Função para buscar o valor associado a uma chave na tabela hash
-int procura_nome(HashTable_Nomes *hash_table_nomes, char *nome) {
-    int index = hash_function_nomes(nome, hash_table_nomes->tamanho);
-    // Procura pela chave na tabela
-    while (hash_table_nomes->nomes[index] != NULL) {
-        // Se a chave for encontrada, retorna o valor associado
-        if (strcmp(hash_table_nomes->nomes[index], nome) == 0) {
-            return hash_table_nomes->valores_nomes[index];
+//Função para buscar uma cidade pelo nome na tabela hash
+City **Procura_nome(HashTable_Nomes *hash_table, const char *nome, int *numCidadesEncontradas) {
+    //Calcula o indice usando a funcao hash para transfomar strings em valores hash
+    unsigned int index = Hash_function_nomes(nome, hash_table->tamanho);
+    //Inicializa o contador
+    int count = 0;
+    //Aloca memoria para o vetor das cidades encontradas
+    City **cidadesEncontradas = (City **)malloc(hash_table->tamanho * sizeof(City *));
+
+    //Enquanto a hastable na posisao do index estiver ocupada (colisao):
+    while (hash_table->table[index] != NULL) {
+        //Caso o nome dado na funcao seja igual ao nome armazenado na posicao index da hashtable:
+        if (strcmp(hash_table->table[index]->nome, nome) == 0) {
+            //A cidade é adicionada ao vetor cidadesEncontradas na posição indicada pelo contador count, e o contador é incrementado
+            cidadesEncontradas[count++] = hash_table->table[index];
         }
-        // Avança para a próxima posição
-        index = (index + 1) % hash_table_nomes->tamanho;
+        //Atualiza o índice para a próxima posição na tabela hash
+        index = (index + 1) % hash_table->tamanho;
     }
-    // Se a chave não for encontrada, retorna -1
-    return -1;
+
+    /*Atualiza o valor apontado por numCidadesEncontradas com o valor final do contador count, 
+    representando o número total de cidades encontradas com o nome especificado*/
+    *numCidadesEncontradas = count;
+    return cidadesEncontradas;
+}
+
+//Função para exibir a lista de cidades buscadas que possuem o mesmo nome
+void Exibir_cidades_encontradas(City **cidades, int numCidades) {
+    printf("Foram encontradas multiplas cidades com esse nome. Escolha uma:\n");
+    for (int i = 0; i < numCidades; i++) {
+        printf("%d - %s\n", i + 1, cidades[i]->nome);
+    }
 }
 
 /*TAREFA 1*/
@@ -284,7 +299,9 @@ void Procura_vizinhos(KDNode *raiz, City *cidade, int N_vizinhos, double *vetor_
 }
 
 int main() {
-    // Abrindo o arquivo JSON para leitura
+    printf("Espere um momento...\n");
+
+    //Abrindo o arquivo JSON para leitura
     FILE *file = fopen("municipios.json", "r");
     if (file == NULL) {
         printf("Erro ao abrir o arquivo.\n");
@@ -293,7 +310,7 @@ int main() {
 
     char buffer[1024];
     char *jsonBuffer = (char *)malloc(1);
-    jsonBuffer[0] = '\0'; // Inicializa a string vazia
+    jsonBuffer[0] = '\0'; //Inicializa a string vazia
 
     //Lendo o conteúdo do arquivo e concatenando no jsonBuffer
     while (fgets(buffer, 1024, file) != NULL) {
@@ -311,27 +328,27 @@ int main() {
     fclose(file);
 
     //Parsing do JSON
-    cJSON *raiz = cJSON_Parse(jsonBuffer);
-    if (raiz == NULL) {
+    cJSON *root = cJSON_Parse(jsonBuffer);
+    if (root == NULL) {
         printf("Erro ao fazer o parsing do JSON.\n");
         free(jsonBuffer);
         return 1;
     }
 
-    //Criando a tabela hash(nomes)
-    HashTable_Nomes *hash_table_nomes = cria_hash_table_nomes(10000);
+    //Criando a a tabela hash para buscar pelo nome
+    HashTable_Nomes *hash_table = Cria_hash_table_nomes(10000);
 
-    //Criando a tabela hash
-    HashTable *hash_table = Cria_hash_table(10000);
+    //Criando a tabela hash para busca dos vizinhos
+    HashTable *hash_table_vizinho = Cria_hash_table(10000);
 
     //Array de cidades
-    int numCidades = cJSON_GetArraySize(raiz);
+    int numCidades = cJSON_GetArraySize(root);
     City cidades[numCidades];
 
-    //Lendo cada cidade do JSON e inserindo na tabela hash
     for (int i = 0; i < numCidades; ++i) {
-        cJSON *cidadeJson = cJSON_GetArrayItem(raiz, i);
+        cJSON *cidadeJson = cJSON_GetArrayItem(root, i);
 
+        //Salvar a cidade atual no array de cidades
         cidades[i].codigo_ibge = cJSON_GetObjectItem(cidadeJson, "codigo_ibge")->valueint;
         strcpy(cidades[i].nome, cJSON_GetObjectItem(cidadeJson, "nome")->valuestring);
         cidades[i].latitude = cJSON_GetObjectItem(cidadeJson, "latitude")->valuedouble;
@@ -342,28 +359,81 @@ int main() {
         cidades[i].ddd = cJSON_GetObjectItem(cidadeJson, "ddd")->valueint;
         strcpy(cidades[i].fuso_horario, cJSON_GetObjectItem(cidadeJson, "fuso_horario")->valuestring);
 
-        //Inserindo a cidade na tabela hash para nomes
-        insere_nome(hash_table_nomes, cidades[i].nome, cidades[i].codigo_ibge);
-        //Inserindo a cidade na tabela hash de codigos_IBGE
-        Insere_cidade(hash_table, &cidades[i]);
+        //Inserindo a cidade na tabela hash de nomes
+        Insere_nome(hash_table, &cidades[i]);
+        //Inserindo a cidade na tabela hash de vizinhos
+        Insere_cidade(hash_table_vizinho, &cidades[i]);
     }
 
-    //Nome da cidade a ser buscada
-    char cidade_busca[100];
-    strcpy(cidade_busca, "Abadia dos Dourados");
+    //Recebe o nome de uma cidade dada pelo usuário
+    char cidade_nome[100];
+    printf("\nDigite o nome da cidade a ser buscada: ");
+    fgets(cidade_nome, 100, stdin);
+    cidade_nome[strcspn(cidade_nome, "\n")] = '\0'; //Remove o caractere de nova linha
 
-    //Buscando o código IBGE da cidade na tabela hash
-    int codigo_ibge = procura_nome(hash_table_nomes, cidade_busca);
+    int numCidadesEncontradas, codigo_IBGE;
+    //Procura uma ou mais cidades pelo nome inserido pelo usuário
+    City **cidadesEncontradas = Procura_nome(hash_table, cidade_nome, &numCidadesEncontradas);
 
-    //Exibindo as informações da cidade buscada, se encontrada
-    if (codigo_ibge != -1) {
-        printf("Código IBGE: %d\n", codigo_ibge);
+    //Encontrou apenas 1 cidade com o nome dado
+    if (numCidadesEncontradas == 1) {
+        printf("\nCidade encontrada:\n");
+        printf("Codigo IBGE: %d\n", cidadesEncontradas[0]->codigo_ibge);
+        //Salva o codigo IBGE da cidade
+        codigo_IBGE = cidadesEncontradas[0]->codigo_ibge;
+    }
+
+    //Encontrou mais de uma cidade com o nome dado
+    else if (numCidadesEncontradas > 1) {
+        Exibir_cidades_encontradas(cidadesEncontradas, numCidadesEncontradas);
+        int escolha;
+        //Usuário deve escolher qual cidade ele quer pegar o código IBGE
+        printf("\nEscolha uma cidade pelo numero correspondente: ");
+        scanf("%d", &escolha);
+        //Verifica se o número digitado é valido
+        if (escolha > 0 && escolha <= numCidadesEncontradas) {
+            printf("\nCidade escolhida:\n");
+            printf("Codigo IBGE: %d\n", cidadesEncontradas[escolha - 1]->codigo_ibge);
+            //Salva o codigo IBGE da cidade
+            codigo_IBGE = cidadesEncontradas[escolha - 1]->codigo_ibge;
+        } else {
+            printf("Escolha invalida.\n");
+
+            // Liberando a memória alocada para as cidades
+            cJSON_Delete(root);
+            free(jsonBuffer);
+            free(cidadesEncontradas);
+            for (int i = 0; i < hash_table->tamanho; ++i) {
+                if (hash_table->table[i] != NULL) {
+                    free(hash_table->table[i]);
+                }
+            }
+            free(hash_table->table);
+            free(hash_table);
+            free(hash_table_vizinho->table);
+            free(hash_table_vizinho);
+            return 1;
+        }
     } else {
-        printf("Cidade não encontrada.\n");
+        printf("Cidade nao encontrada.\n");
+
+        // Liberando a memória alocada para as cidades
+        cJSON_Delete(root);
+        free(jsonBuffer);
+        free(cidadesEncontradas);
+        for (int i = 0; i < hash_table->tamanho; ++i) {
+            if (hash_table->table[i] != NULL) {
+                free(hash_table->table[i]);
+            }
+        }
+        free(hash_table->table);
+        free(hash_table);
+        free(hash_table_vizinho->table);
+        free(hash_table_vizinho);
         return 1;
     }
 
-    /*TAREFA 2:*/
+     /*TAREFA 2:*/
 
     //Construir a KD-tree
     KDNode *node_raiz = NULL;
@@ -371,11 +441,15 @@ int main() {
         node_raiz = Insere_cidade_kd(node_raiz, &cidades[i], 0);
     }
 
-    int cidade_busca2 = codigo_ibge;
-    int N = 10; // Número de vizinhos desejados
+    int cidade_busca = codigo_IBGE;
+    int N; //Número de vizinhos desejados
+    //Usuário deve escolher a quantidade de vizinhos a serem buscados
+    printf("\nDigite a quantidade de vizinhos a serem buscados: ");
+    scanf("%d", &N);
     City cidadeBusca;
+    //Procura na array de cidades a cidade com o codigo IBGE encontrado
     for (int i = 0; i < numCidades; i++) {
-        if (cidades[i].codigo_ibge == cidade_busca2) {
+        if (cidades[i].codigo_ibge == cidade_busca) {
             cidadeBusca = cidades[i];
             break;
         }
@@ -389,16 +463,18 @@ int main() {
         vizinhos[i] = -1;
     }
 
+    //Procura os vizinhos da cidade com o codigo IBGE encontrado
     Procura_vizinhos(node_raiz, &cidadeBusca, N+1, distancias, vizinhos, 0);
 
     /*TAREFA 1:*/
-    printf("As informações das %d cidades vizinhas mais próximas à %s são:\n", N, cidade_busca);
+
+    printf("\nAs informacoes da(s) %d cidade(s) vizinha(s) mais proxima(s) a %s sao:\n", N, cidade_nome);
     for (int i = 0; i < N+1; i++) {
-        if (vizinhos[i] != cidade_busca2) { // Verifica se não é a própria cidade de busca
+        if (vizinhos[i] != cidade_busca) { //Verifica se não é a própria cidade de busca
             //Código IBGE da cidade a ser buscada
             int codigo_ibge = vizinhos[i];
             //Buscando a cidade na tabela hash
-            City *cidadeBuscada = Procura_cidade(hash_table, codigo_ibge);
+            City *cidadeBuscada = Procura_cidade(hash_table_vizinho, codigo_ibge);
 
             printf("Cidade %d :\n", i);
             //Exibindo as informações da cidade buscada, se encontrada
@@ -418,18 +494,20 @@ int main() {
         }
     }
 
-    //Liberando memória alocada
-    cJSON_Delete(raiz);
+    // Liberando a memória alocada para as cidades
+    cJSON_Delete(root);
     free(jsonBuffer);
-    for (int i = 0; i < hash_table_nomes->tamanho; i++) {
-        free(hash_table_nomes->nomes[i]);
+    free(cidadesEncontradas);
+    for (int i = 0; i < hash_table->tamanho; ++i) {
+        if (hash_table->table[i] != NULL) {
+            free(hash_table->table[i]);
+        }
     }
-    free(hash_table_nomes->nomes);
-    free(hash_table_nomes->valores_nomes);
-    free(hash_table_nomes);
-    free(node_raiz);
     free(hash_table->table);
     free(hash_table);
+    free(node_raiz);
+    free(hash_table_vizinho->table);
+    free(hash_table_vizinho);
 
     return 0;
 }
